@@ -1,7 +1,7 @@
 {
   "name": "ultrastar",
   "description": "Download songs from UltraStar biggest database",
-  "version": "0.0.1",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "private": true,
   "keywords": [
