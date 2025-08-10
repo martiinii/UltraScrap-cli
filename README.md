@@ -1,66 +1,114 @@
+# UltraStar CLI
 
-# UltraScrap
-Download any song from [the biggest database](https://usdb.animux.de) of UltraStar songs in a matter of seconds.
+![Local SQL](https://raw.githubusercontent.com/martiinii/UltraScrap-cli/main/media/demo.gif)
 
-This project was created in a matter of hours because me and a group of my friends wanted to sing the newest songs, but they weren't available elsewhere. Because this database provides only txt file (just lyrics, no audio or video), they had to be downloaded separately.
+### What is this?
+UltraStar CLI is the fastest way to build your UltraStar song library. Search the biggest UltraStar database, preview results, and download complete, ready-to-sing folders in one go — lyrics, cover, and video included. No manual stitching. No messy files. Just search, hit Enter, and sing.
 
-This project automates all of that *(and even skips 25 seconds of waiting time before downloading start)*. It downloads all of the essential files and puts them into corresponding directories.
+Why it’s awesome:
+- Blazing fast TUI powered by Ink (React for terminals)
+- Pulls from the largest UltraStar DB and auto-fills YouTube links when needed
+- Downloads video via `yt-dlp` with a smooth progress bar
+- Writes proper UltraStar `song.txt` headers and saves `cover.jpg` + `video.mp4`
+- Smart session: securely creates and stores credentials automatically
+- Cross‑platform: Linux, macOS, Windows
 
-Instead of:
-- Waiting 25 seconds for download to start
-- Searching for YouTube video
-- Downloading video and music separately
-- Changing filenames to match those in song txt file
 
-Just enter song id into the console.
+## Requirements
 
-# How to use
-1. Create an account on https://usdb.animux.de (I recommend creating 2 accounts, one for browsing, second one for scrapper, see FAQ)
-2. Create `.env` file in the root directory and put the credentials here:
-```env
-USERNAME="Your username here"
-PASSWORD="Your password here"
+- yt-dlp (for downloading videos + audio)
+- Either npm (Node.js) or Bun (recommended)
+
+### Install yt-dlp
+- macOS: `brew install yt-dlp` or `pipx install yt-dlp`
+- Windows: `winget install yt-dlp.yt-dlp` or `choco install yt-dlp` or `pipx install yt-dlp`
+- Linux: Use your package manager (e.g. `apt install yt-dlp`, `dnf install yt-dlp`, `pacman -S yt-dlp`) or `pipx install yt-dlp`
+
+If you need more options, see `https://github.com/yt-dlp/yt-dlp#installation`.
+
+### Install a runtime
+- Node.js (for npm): We recommend installing via nvm: `https://github.com/nvm-sh/nvm`
+- Bun (recommended): `curl -fsSL https://bun.sh/install | bash` or see `https://bun.sh`
+
+
+## Quick Start (no install)
+
+Run directly with your favorite package runner:
+
+### npm
+```bash
+npx ultrastar
 ```
-3. Run either:
- ```shell
-npm run build
-npm run start
+
+### Bun (recommended)
+```bash
+bunx --bun ultrastar
 ```
 
-Or:
-```shell
-npm run buildstart
-```
+The first run will check yt-dlp and initialize a session. Use the search form, pick a song, and press Enter to download. Your songs will be saved under `./songs/Artist - Title/`.
 
-Then you will be prompted to enter song id.
 
-4. Enjoy singing!
+## Keyboard Shortcuts
+- In search form: Tab = switch field, Enter = search, Esc = quit
+- In results: ↑/↓ = select, Enter = download, ←/→ = page, e = edit search, r = refresh, Esc = back
 
-# FAQ
-## Where to find song id?
-Once you open any song, the **id** is in the end of the link:
-`usdb.animux.de/index.php?link=detail&id=27563`
-For the link above, the **song id** is **27563**.
-Copy it and paste it into the console when prompted.
 
-## Why two accounts?
-One account will be used for us to search songs in the database, second one for scrapper. When we start the script, it will log in and store PHP session cookie and any other session would be destroyed. This means that we can only be logged in from one device at a time. So we could either search or use script. Second account solves this problem for us (Searching database through the script in on the TODO list).
-
-## YouTube link not found. Enter YouTube link manually
-If link to YouTube video could not be found automatically, find the song and grab its link, then paste it into console when prompted.
-
-## Lyrics are not synchronized with music/video
-There is currently no easy fix for this. You could either download other version (if available) or mess with **START** and **END** variable in txt file. When the lyrics are mismatched/missing, find another version.
-
-## Error during downloading
-If there was an error while downloading YouTube video/audio, open the link and check if the error isn't displayed there. It could be to many reasons:
-- YouTube is experiencing some outage
-- Video is age restricted
-- Video is not available in your country
-- Video doesn't exist anymore
-- The author of the video changed its visibility
-
-If the error is due to outage, wait a few minutes and try again, in any other case you have to find other way to download it.
-# Links
+## Links
 - https://usdb.animux.de - The biggest database of UltraStar songs (lyrics only)
-- https://ultrastar-es.org/ - Smaller database of songs, includes audio and video. You can download **UltraStar WorldParty** here.
+- https://ultrastar-es.org/ – Smaller database of songs, includes audio and video. You can download *UltraStar WorldParty* here.
+
+
+## How it works (under the hood)
+- Searches songs on USDB
+- Resolves a YouTube link from USDB when available; otherwise searches YouTube
+- Downloads the video with yt-dlp while showing progress
+- Fetches cover art and lyrics, and writes a proper UltraStar `song.txt`
+- Outputs a complete folder per song: `song.txt`, `cover.jpg`, `video.mp4`
+
+
+## Develop
+
+This project uses Bun. You can still run the built CLI with Node, but development is Bun-first.
+
+### Setup
+```bash
+bun install
+```
+
+### Start the TUI in dev
+```bash
+bun run start
+```
+
+### Build the distributable CLI
+```bash
+bun run build
+# Artifacts are written to ./build/dist
+```
+
+### Try the built CLI locally
+```bash
+node build/dist/index.js
+# or
+bun build/dist/index.js
+# or on Unix systems (shebang-enabled):
+./build/dist/index.js
+```
+
+### Lint & Format
+```bash
+bun run lint
+bun run format
+```
+
+### Project structure (high level)
+- `src/ui/` – TUI (Ink) components and interactions
+- `src/api/` – USDB and YouTube integrations (search, download, auth)
+- `src/storage/` – Local cache: credentials, downloaded song list
+- `src/build.ts` – Build script (Bun bundler)
+
+
+## Troubleshooting
+- yt-dlp not found: Install it and ensure it’s on your PATH, then re-run the CLI
+- No results: Try different keywords or fewer filters (artist/title)
+- Permission issues writing songs: Run in a directory you own or adjust permissions
