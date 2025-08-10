@@ -21,7 +21,8 @@
     "start": "bun run src/index.tsx",
     "format": "biome format --write .",
     "clean": "git clean -xdf .turbo build",
-    "lint": "biome lint --write ."
+    "lint": "biome lint --write .",
+    "bump": "bumpp"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.4",
