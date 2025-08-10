@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  BUN_VERSION: "1.2.19"
+
+jobs:
+  determine_tag:
+    runs-on: ubuntu-latest
+    outputs:
+      npm_tag: ${{ steps.determine_npm_tag.outputs.npm_tag }}
+      version: ${{ steps.extract_version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Determine npm tag
+        id: determine_npm_tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" =~ -(next|canary|beta|rc) ]]; then
+            # Extract pre-release tag (e.g., beta, rc)
+            NPM_TAG=${BASH_REMATCH[1]}
+          else
+            # Check if the commit is on the main branch
+            git fetch origin main
+            if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              NPM_TAG="latest"
+            else
+              echo "The tagged commit is not on the main branch."
+              echo "::error ::Releases with the 'latest' npm tag must be on the main branch."
+              exit 1
+            fi
+          fi
+          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
+          echo "Using npm tag: $NPM_TAG"
+
+  changelog:
+    runs-on: ubuntu-latest
+    needs: [determine_tag]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun.js
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Generate changelog
+        run: bunx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: determine_tag
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun.js
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun i
+
+      - name: Build CLI
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-cli
+          path: build
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [determine_tag, build]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun.js
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-cli
+          path: build
+
+      - name: Publish CLI to npm
+        run: |
+          cd build
+          bun publish --verbose --access public --tag ${{ needs.determine_tag.outputs.npm_tag }}
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [determine_tag, changelog, build, publish]
+    if: always()
+    steps:
+      - name: Create release summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          # 🚀 Release summary
+          
+          ## 📦 Release Information
+          
+          - **Version**: `${{ needs.determine_tag.outputs.version }}`
+          - **Tag**: `${{ needs.determine_tag.outputs.npm_tag }}`
+          - **Environment**: ${{ needs.determine_tag.outputs.npm_tag == 'latest' && '🟢 Production' || '🟡 Preview' }}
+          - **Commit**: `${{ github.sha }}`
+          - **Triggered by**: `${{ github.actor }}`
+          
+          ## 📋 Job Status
+
+          | Job | Status |
+          |-----|:------:|
+          | Changelog | ${{ needs.changelog.result == 'success' && '✅' || '❌' }} |
+          | Build | ${{ needs.build.result == 'success' && '✅' || '❌' }} |
+          | NPM Publish | ${{ needs.publish.result == 'success' && '✅' || '❌' }} |
+          
+          ## 🔗 Links
+          - **📝 Release Notes**: [View Changelog](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.determine_tag.outputs.version }})
+          EOF
